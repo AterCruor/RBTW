@@ -1,10 +1,16 @@
+const normalizeCoverUrl = (value) => {
+  if (!value) return '';
+  return String(value).replace(/^http:\/\//i, 'https://');
+};
+
 const normalizeCoverSet = (coverSet = []) => {
   const byDescriptor = new Map();
   for (const item of coverSet) {
     if (!item || !item.url || !item.descriptor) continue;
+    const normalizedUrl = normalizeCoverUrl(item.url);
     const existing = byDescriptor.get(item.descriptor);
     if (!existing || item.rank > existing.rank) {
-      byDescriptor.set(item.descriptor, item);
+      byDescriptor.set(item.descriptor, { ...item, url: normalizedUrl });
     }
   }
   return Array.from(byDescriptor.values()).sort((a, b) => a.rank - b.rank);
@@ -22,7 +28,7 @@ const googleCoverDescriptors = [
 export const selectBestGoogleCover = (imageLinks = {}) => {
   const coverSet = [];
   for (const entry of googleCoverDescriptors) {
-    const url = imageLinks[entry.key];
+    const url = normalizeCoverUrl(imageLinks[entry.key]);
     if (url) {
       coverSet.push({
         url,
@@ -48,8 +54,9 @@ export const selectBestOpenLibraryCover = (detailsCover, coverId) => {
   const seen = new Set();
   const add = (url, descriptor, rank) => {
     if (!url || seen.has(url)) return;
-    seen.add(url);
-    coverSet.push({ url, descriptor, rank });
+    const normalizedUrl = normalizeCoverUrl(url);
+    seen.add(normalizedUrl);
+    coverSet.push({ url: normalizedUrl, descriptor, rank });
   };
 
   if (detailsCover) {
@@ -84,9 +91,9 @@ const rankOpenLibraryCover = (url) => {
 
 export const pickBestCover = (base, extra) => {
   if (!base && !extra) return '';
-  if (!base || !base.cover) return extra ? extra.cover || '' : '';
-  if (!extra || !extra.cover) return base.cover || '';
+  if (!base || !base.cover) return extra ? normalizeCoverUrl(extra.cover) || '' : '';
+  if (!extra || !extra.cover) return normalizeCoverUrl(base.cover) || '';
   const baseRank = typeof base.coverRank === 'number' ? base.coverRank : rankOpenLibraryCover(base.cover);
   const extraRank = typeof extra.coverRank === 'number' ? extra.coverRank : rankOpenLibraryCover(extra.cover);
-  return extraRank > baseRank ? extra.cover : base.cover;
+  return extraRank > baseRank ? normalizeCoverUrl(extra.cover) : normalizeCoverUrl(base.cover);
 };

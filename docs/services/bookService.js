@@ -61,7 +61,7 @@ const buildError = (source, book, error, label) => {
 export const resolveBookMetadata = async (book, apiKey) => {
   const errors = [];
   let result = null;
-  const manualCover = book.cover ? String(book.cover) : '';
+  const manualCover = book.cover ? String(book.cover).replace(/^http:\/\//i, 'https://') : '';
   const quotes = normalizeQuotes(book);
   const needsOpenLibrarySearch = (value) =>
     !value ||
