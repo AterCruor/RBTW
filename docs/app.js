@@ -221,6 +221,30 @@ const pickBestCover = (openLibraryUrl, googleCover) => {
   return openLibraryUrl || googleCover.url || '';
 };
 
+const mergeMetadata = (base, extra) => {
+  if (!base) return extra;
+  if (!extra) return base;
+
+  const baseCoverRank = base.coverRank || 0;
+  const extraCoverRank = extra.coverRank || 0;
+  const useExtraCover = extraCoverRank > baseCoverRank;
+
+  return {
+    ...base,
+    title: base.title || extra.title,
+    author: base.author || extra.author,
+    description: base.description || extra.description,
+    pageCount: base.pageCount || extra.pageCount,
+    cover: pickBestCover(base.cover, extra),
+    coverRank: Math.max(baseCoverRank, extraCoverRank),
+    coverSet: useExtraCover ? extra.coverSet : base.coverSet,
+    isbn10: base.isbn10 || extra.isbn10,
+    isbn13: base.isbn13 || extra.isbn13,
+    isbnNotes:
+      base.isbnNotes && base.isbnNotes.length ? base.isbnNotes : extra.isbnNotes,
+  };
+};
+
 const selectIsbn13 = (isbns = []) => {
   const isbn13 = isbns.find((value) => value && value.length === 13);
   return isbn13 || isbns[0] || null;
@@ -358,27 +382,56 @@ const renderBookCard = (container, metadata) => {
   container.appendChild(card);
 };
 
-const fetchFromOpenLibrary = async (book) => {
-  if (!book.title && !book.author && !book.isbn10 && !book.isbn13) {
+const fetchOpenLibraryByIsbn = async (book) => {
+  const isbnData = getIsbnData(book);
+  const isbn = isbnData.isbn13 || isbnData.isbn10;
+  if (!isbn) {
     return null;
   }
 
-  let isbn = null;
-  let coverId = null;
-
-  const isbnDataFromBook = getIsbnData(book);
-  const hasValidIsbn = Boolean(isbnDataFromBook.isbn13 || isbnDataFromBook.isbn10);
-  if (hasValidIsbn) {
-    isbn = isbnDataFromBook.isbn13 || isbnDataFromBook.isbn10;
-  } else if (book.title || book.author) {
-    const search = await fetchJson(openLibrarySearchUrl(book.title, book.author));
-    const first = search.docs && search.docs[0];
-    if (first) {
-      isbn = selectIsbn13(first.isbn || []);
-      coverId = first.cover_i || null;
-    }
+  const data = await fetchJson(openLibraryBooksUrl(isbn));
+  const key = `ISBN:${isbn}`;
+  const details = data[key];
+  if (!details) {
+    return null;
   }
 
+  const description =
+    typeof details.description === 'string'
+      ? details.description
+      : details.description && details.description.value
+      ? details.description.value
+      : null;
+
+  const coverSelection = selectBestOpenLibraryCover(details.cover, null);
+
+  return {
+    title: details.title || book.title,
+    author: details.authors && details.authors[0] ? details.authors[0].name : book.author,
+    cover: coverSelection.url,
+    coverRank: coverSelection.rank,
+    coverSet: coverSelection.coverSet,
+    pageCount: details.number_of_pages || null,
+    description,
+    isbn10: isbnData.isbn10,
+    isbn13: isbnData.isbn13,
+    isbnNotes: isbnData.notes,
+  };
+};
+
+const fetchOpenLibraryBySearch = async (book) => {
+  if (!book.title && !book.author) {
+    return null;
+  }
+
+  const search = await fetchJson(openLibrarySearchUrl(book.title, book.author));
+  const first = search.docs && search.docs[0];
+  if (!first) {
+    return null;
+  }
+
+  const isbn = selectIsbn13(first.isbn || []);
+  const coverId = first.cover_i || null;
   if (!isbn) {
     return null;
   }
@@ -414,25 +467,14 @@ const fetchFromOpenLibrary = async (book) => {
   };
 };
 
-const fetchFromGoogleBooks = async (book, apiKey) => {
+const fetchGoogleByIsbn = async (book, apiKey) => {
   const isbnData = getIsbnData(book);
-  const hasValidIsbn = Boolean(isbnData.isbn13 || isbnData.isbn10);
-  const hasQuery = hasValidIsbn || book.title || book.author;
-  if (!hasQuery) {
+  const isbn = isbnData.isbn13 || isbnData.isbn10;
+  if (!isbn) {
     return null;
   }
 
-  let query = '';
-  if (hasValidIsbn) {
-    query = `isbn:${isbnData.isbn13 || isbnData.isbn10}`;
-  } else {
-    const parts = [];
-    if (book.title) parts.push(`intitle:${book.title}`);
-    if (book.author) parts.push(`inauthor:${book.author}`);
-    query = parts.join('+');
-  }
-
-  const data = await fetchJson(googleBooksUrl(query, apiKey));
+  const data = await fetchJson(googleBooksUrl(`isbn:${isbn}`, apiKey));
   const item = data.items && data.items[0];
   if (!item) {
     return null;
@@ -454,55 +496,96 @@ const fetchFromGoogleBooks = async (book, apiKey) => {
   };
 };
 
-const resolveBookMetadata = async (book, apiKey) => {
-  try {
-    const openLibrary = await fetchFromOpenLibrary(book);
-    if (openLibrary) {
-      const needsEnrichment =
-        !openLibrary.description || !openLibrary.pageCount || !openLibrary.cover;
-      if (!needsEnrichment) {
-        return openLibrary;
-      }
-      try {
-        const googleBooks = await fetchFromGoogleBooks(book, apiKey);
-        if (googleBooks) {
-          const useGoogleCover = googleBooks.coverRank > (openLibrary.coverRank || 0);
-          return {
-            ...openLibrary,
-            description: openLibrary.description || googleBooks.description,
-            pageCount: openLibrary.pageCount || googleBooks.pageCount,
-            cover: pickBestCover(openLibrary.cover, googleBooks),
-            coverSet: useGoogleCover ? googleBooks.coverSet : openLibrary.coverSet,
-            isbnNotes:
-              openLibrary.isbnNotes && openLibrary.isbnNotes.length
-                ? openLibrary.isbnNotes
-                : googleBooks.isbnNotes,
-          };
-        }
-      } catch (error) {
-        renderError(`Google Books lookup failed for "${book.title || book.isbn}".`);
-      }
-      return openLibrary;
-    }
-  } catch (error) {
-    renderError(`Open Library lookup failed for "${book.title || book.isbn}".`);
+const fetchGoogleBySearch = async (book, apiKey) => {
+  if (!book.title && !book.author) {
+    return null;
   }
 
-  try {
-    const googleBooks = await fetchFromGoogleBooks(book, apiKey);
-    if (googleBooks) {
-      return googleBooks;
-    }
-  } catch (error) {
-    renderError(`Google Books lookup failed for "${book.title || book.isbn}".`);
+  const parts = [];
+  if (book.title) parts.push(`intitle:${book.title}`);
+  if (book.author) parts.push(`inauthor:${book.author}`);
+  const query = parts.join('+');
+
+  const data = await fetchJson(googleBooksUrl(query, apiKey));
+  const item = data.items && data.items[0];
+  if (!item) {
+    return null;
   }
 
+  const info = item.volumeInfo || {};
+  const googleCover = selectBestGoogleCover(info.imageLinks || {});
+  const isbnData = getIsbnData(book);
   return {
-    title: book.title || 'Unknown title',
-    author: book.author || 'Unknown author',
-    cover: '',
-    pageCount: null,
+    title: info.title || book.title,
+    author: info.authors ? info.authors[0] : book.author,
+    cover: googleCover.url,
+    coverRank: googleCover.rank,
+    coverSet: googleCover.coverSet,
+    pageCount: info.pageCount || null,
+    description: info.description || null,
+    isbn10: isbnData.isbn10,
+    isbn13: isbnData.isbn13,
+    isbnNotes: isbnData.notes,
   };
+};
+
+const resolveBookMetadata = async (book, apiKey) => {
+  let result = null;
+  const manualCover = book.cover ? String(book.cover) : '';
+
+  try {
+    const openLibraryIsbn = await fetchOpenLibraryByIsbn(book);
+    result = mergeMetadata(result, openLibraryIsbn);
+  } catch (error) {
+    renderError(`Open Library ISBN lookup failed for "${book.title || book.isbn13}".`);
+  }
+
+  if (!result || !result.cover) {
+    try {
+      const googleIsbn = await fetchGoogleByIsbn(book, apiKey);
+      result = mergeMetadata(result, googleIsbn);
+    } catch (error) {
+      renderError(`Google Books ISBN lookup failed for "${book.title || book.isbn13}".`);
+    }
+  }
+
+  if (!result || !result.cover) {
+    try {
+      const openLibrarySearch = await fetchOpenLibraryBySearch(book);
+      result = mergeMetadata(result, openLibrarySearch);
+    } catch (error) {
+      renderError(`Open Library search failed for "${book.title || book.isbn13}".`);
+    }
+  }
+
+  if (!result || !result.cover) {
+    try {
+      const googleSearch = await fetchGoogleBySearch(book, apiKey);
+      result = mergeMetadata(result, googleSearch);
+    } catch (error) {
+      renderError(`Google Books search failed for "${book.title || book.isbn13}".`);
+    }
+  }
+
+  if (!result) {
+    result = {
+      title: book.title || 'Unknown title',
+      author: book.author || 'Unknown author',
+      cover: '',
+      pageCount: null,
+      isbn10: getIsbnData(book).isbn10,
+      isbn13: getIsbnData(book).isbn13,
+      isbnNotes: getIsbnData(book).notes,
+    };
+  }
+
+  if (manualCover) {
+    result.cover = manualCover;
+    result.coverSet = [{ url: manualCover, descriptor: '1x', rank: 10 }];
+    result.coverRank = Math.max(result.coverRank || 0, 10);
+  }
+
+  return result;
 };
 
 const loadPage = async () => {
