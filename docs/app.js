@@ -299,6 +299,9 @@ const sanitizeDescriptionHtml = (value) => {
   const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'BR', 'P']);
   const parser = new DOMParser();
   const doc = parser.parseFromString(String(value), 'text/html');
+  if (!doc || !doc.body) {
+    return String(value).trim();
+  }
 
   const scrubNode = (node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
