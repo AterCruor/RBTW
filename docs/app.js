@@ -645,7 +645,14 @@ const resolveBookMetadata = async (book, apiKey) => {
 };
 
 const loadPage = async () => {
-  const config = await fetchJson(CONFIG_URL);
+  let config;
+  try {
+    config = await fetchJson(CONFIG_URL);
+  } catch (error) {
+    const detail = error && error.message ? ` (${error.message})` : '';
+    renderError(`Unable to load configuration${detail}.`);
+    return;
+  }
 
   const clubName = document.getElementById('club-name');
   clubName.textContent = config.clubName || 'Book Club';
@@ -658,12 +665,15 @@ const loadPage = async () => {
   const apiKey = config.googleBooksApiKey || '';
   const books = Array.isArray(config.currentBooks) ? config.currentBooks : [];
 
-  for (const book of books) {
-    const metadata = await resolveBookMetadata(book, apiKey);
-    renderBookCard(bookContainer, metadata);
+  try {
+    for (const book of books) {
+      const metadata = await resolveBookMetadata(book, apiKey);
+      renderBookCard(bookContainer, metadata);
+    }
+  } catch (error) {
+    const detail = error && error.message ? ` (${error.message})` : '';
+    renderError(`Unable to render books${detail}.`);
   }
 };
 
-loadPage().catch(() => {
-  renderError('Unable to load configuration.');
-});
+loadPage();
