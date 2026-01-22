@@ -1,4 +1,10 @@
-const CONFIG_URL = new URL('config.json', window.location.href).toString();
+const configBasePath = window.location.pathname.endsWith('/')
+  ? window.location.pathname
+  : `${window.location.pathname}/`;
+const CONFIG_URL = new URL(
+  'config.json',
+  `${window.location.origin}${configBasePath}`
+).toString();
 
 const openLibrarySearchUrl = (title, author) => {
   const params = new URLSearchParams();
