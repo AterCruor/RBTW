@@ -55,6 +55,35 @@ const renderError = (message) => {
 };
 
 const renderBookCard = (container, metadata) => {
+  const template = document.getElementById('book-card-template');
+  if (template && 'content' in template) {
+    const fragment = template.content.cloneNode(true);
+    const card = fragment.querySelector('.book-card');
+    const cover = fragment.querySelector('.book-cover');
+    const title = fragment.querySelector('.book-title');
+    const author = fragment.querySelector('.book-author');
+    const meta = fragment.querySelector('.book-meta');
+    const description = fragment.querySelector('.book-description');
+
+    if (cover) {
+      cover.alt = metadata.title || 'Book cover';
+      cover.src = metadata.cover || '';
+    }
+    if (title) title.textContent = metadata.title || 'Unknown title';
+    if (author) author.textContent = metadata.author || 'Unknown author';
+    if (meta) {
+      meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
+      if (!meta.textContent) meta.remove();
+    }
+    if (description) {
+      description.textContent = metadata.description || '';
+      if (!description.textContent) description.remove();
+    }
+
+    container.appendChild(card || fragment);
+    return;
+  }
+
   const card = document.createElement('article');
   card.className = 'book-card';
 
@@ -76,7 +105,7 @@ const renderBookCard = (container, metadata) => {
   meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
 
   const description = document.createElement('p');
-  description.className = 'book-meta';
+  description.className = 'book-description';
   description.textContent = metadata.description || '';
 
   card.appendChild(cover);

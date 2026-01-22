@@ -105,6 +105,12 @@ h1 {
   color: var(--muted);
 }
 
+.book-description {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
 .errors {
   list-style: disc;
   padding-left: 20px;
