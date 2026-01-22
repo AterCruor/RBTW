@@ -270,6 +270,33 @@ const renderError = (message) => {
   container.hidden = false;
 };
 
+const sanitizeDescriptionHtml = (value) => {
+  if (!value) return '';
+  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'BR', 'P']);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(String(value), 'text/html');
+
+  const scrubNode = (node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (!allowedTags.has(node.tagName)) {
+        const fragment = document.createDocumentFragment();
+        while (node.firstChild) fragment.appendChild(node.firstChild);
+        node.replaceWith(fragment);
+        return;
+      }
+      while (node.attributes.length > 0) {
+        node.removeAttribute(node.attributes[0].name);
+      }
+    }
+    for (const child of Array.from(node.childNodes)) {
+      scrubNode(child);
+    }
+  };
+
+  scrubNode(doc.body);
+  return doc.body.innerHTML;
+};
+
 const renderBookCard = (container, metadata) => {
   const template = document.getElementById('book-card-template');
   if (template && 'content' in template) {
@@ -279,10 +306,9 @@ const renderBookCard = (container, metadata) => {
     const coverNote = fragment.querySelector('.book-cover-note');
     const title = fragment.querySelector('.book-title');
     const author = fragment.querySelector('.book-author');
-    const isbn = fragment.querySelector('.book-isbn');
-    const isbnNote = fragment.querySelector('.book-isbn-note');
     const meta = fragment.querySelector('.book-meta');
     const description = fragment.querySelector('.book-description');
+    const quotes = fragment.querySelector('.book-quotes');
 
     if (cover) {
       cover.alt = metadata.title || 'Book cover';
@@ -300,25 +326,27 @@ const renderBookCard = (container, metadata) => {
     }
     if (title) title.textContent = metadata.title || 'Unknown title';
     if (author) author.textContent = metadata.author || 'Unknown author';
-    if (isbn) {
-      const isbnParts = [];
-      if (metadata.isbn13) isbnParts.push(`ISBN-13: ${metadata.isbn13}`);
-      if (metadata.isbn10) isbnParts.push(`ISBN-10: ${metadata.isbn10}`);
-      isbn.textContent = isbnParts.join(' | ');
-      if (!isbn.textContent) isbn.remove();
-    }
-    if (isbnNote) {
-      isbnNote.textContent =
-        metadata.isbnNotes && metadata.isbnNotes.length ? metadata.isbnNotes.join('. ') : '';
-      if (!isbnNote.textContent) isbnNote.remove();
-    }
     if (meta) {
       meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
       if (!meta.textContent) meta.remove();
     }
     if (description) {
-      description.textContent = metadata.description || '';
-      if (!description.textContent) description.remove();
+      const sanitized = sanitizeDescriptionHtml(metadata.description);
+      description.innerHTML = sanitized;
+      if (!sanitized) description.remove();
+    }
+    if (quotes) {
+      const items = Array.isArray(metadata.quotes) ? metadata.quotes : [];
+      if (items.length === 0) {
+        quotes.remove();
+      } else {
+        quotes.innerHTML = '';
+        for (const quote of items) {
+          const item = document.createElement('li');
+          item.textContent = quote;
+          quotes.appendChild(item);
+        }
+      }
     }
 
     container.appendChild(card || fragment);
@@ -350,34 +378,30 @@ const renderBookCard = (container, metadata) => {
   author.className = 'book-author';
   author.textContent = metadata.author || 'Unknown author';
 
-  const isbn = document.createElement('p');
-  isbn.className = 'book-isbn';
-  const isbnParts = [];
-  if (metadata.isbn13) isbnParts.push(`ISBN-13: ${metadata.isbn13}`);
-  if (metadata.isbn10) isbnParts.push(`ISBN-10: ${metadata.isbn10}`);
-  isbn.textContent = isbnParts.join(' | ');
-
-  const isbnNote = document.createElement('p');
-  isbnNote.className = 'book-isbn-note';
-  isbnNote.textContent =
-    metadata.isbnNotes && metadata.isbnNotes.length ? metadata.isbnNotes.join('. ') : '';
-
   const meta = document.createElement('p');
   meta.className = 'book-meta';
   meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
 
   const description = document.createElement('p');
   description.className = 'book-description';
-  description.textContent = metadata.description || '';
+  description.innerHTML = sanitizeDescriptionHtml(metadata.description);
+
+  const quotes = document.createElement('ul');
+  quotes.className = 'book-quotes';
+  const quoteItems = Array.isArray(metadata.quotes) ? metadata.quotes : [];
+  for (const quote of quoteItems) {
+    const item = document.createElement('li');
+    item.textContent = quote;
+    quotes.appendChild(item);
+  }
 
   card.appendChild(cover);
   if (coverNote.textContent) card.appendChild(coverNote);
   card.appendChild(title);
   card.appendChild(author);
-  if (isbn.textContent) card.appendChild(isbn);
-  if (isbnNote.textContent) card.appendChild(isbnNote);
   if (meta.textContent) card.appendChild(meta);
-  if (description.textContent) card.appendChild(description);
+  if (description.innerHTML) card.appendChild(description);
+  if (quotes.children.length > 0) card.appendChild(quotes);
 
   container.appendChild(card);
 };

@@ -127,6 +127,30 @@ h1 {
   font-size: 14px;
   color: var(--muted);
   margin: 0;
+  line-height: 1.5;
+}
+
+.book-description p {
+  margin: 0 0 12px;
+}
+
+.book-description p:last-child {
+  margin-bottom: 0;
+}
+
+.book-quotes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.book-quotes li {
+  margin-bottom: 8px;
+}
+
+.book-quotes li:last-child {
+  margin-bottom: 0;
 }
 
 .errors {
