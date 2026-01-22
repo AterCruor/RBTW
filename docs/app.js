@@ -297,16 +297,9 @@ const renderError = (message) => {
 const sanitizeDescriptionHtml = (value) => {
   if (!value) return '';
   const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'BR', 'P']);
-  let doc;
-  try {
-    const parser = new DOMParser();
-    doc = parser.parseFromString(String(value), 'text/html');
-  } catch (error) {
-    return String(value).trim();
-  }
-  if (!doc || !doc.body) {
-    return String(value).trim();
-  }
+  const template = document.createElement('template');
+  template.innerHTML = String(value);
+  const fragment = template.content;
 
   const scrubNode = (node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
@@ -325,10 +318,12 @@ const sanitizeDescriptionHtml = (value) => {
     }
   };
 
-  scrubNode(doc.body);
-  const cleaned = (doc.body.innerHTML || '').trim();
+  scrubNode(fragment);
+  const wrapper = document.createElement('div');
+  wrapper.appendChild(fragment.cloneNode(true));
+  const cleaned = wrapper.innerHTML.trim();
   if (cleaned) return cleaned;
-  return doc.body.textContent ? doc.body.textContent.trim() : '';
+  return wrapper.textContent ? wrapper.textContent.trim() : '';
 };
 
 const renderBookCard = (container, metadata) => {
