@@ -1,4 +1,4 @@
-const CONFIG_URL = './config.json';
+const CONFIG_URL = new URL('config.json', window.location.href).toString();
 
 const openLibrarySearchUrl = (title, author) => {
   const params = new URLSearchParams();
@@ -402,7 +402,7 @@ const renderBookCard = (container, metadata) => {
   meta.className = 'book-meta';
   meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
 
-  const description = document.createElement('p');
+  const description = document.createElement('div');
   description.className = 'book-description';
   description.innerHTML = sanitizeDescriptionHtml(metadata.description);
 
