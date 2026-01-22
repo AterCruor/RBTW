@@ -221,6 +221,24 @@ const pickBestCover = (openLibraryUrl, googleCover) => {
   return openLibraryUrl || googleCover.url || '';
 };
 
+const scoreDescriptionFormatting = (value) => {
+  if (!value) return 0;
+  const text = String(value);
+  const matches = text.match(/<(p|br|b|strong|i|em)\b/gi);
+  return matches ? matches.length : 0;
+};
+
+const pickRicherDescription = (baseDesc, extraDesc) => {
+  if (!baseDesc) return extraDesc || null;
+  if (!extraDesc) return baseDesc;
+  const baseScore = scoreDescriptionFormatting(baseDesc);
+  const extraScore = scoreDescriptionFormatting(extraDesc);
+  if (extraScore !== baseScore) {
+    return extraScore > baseScore ? extraDesc : baseDesc;
+  }
+  return String(extraDesc).length > String(baseDesc).length ? extraDesc : baseDesc;
+};
+
 const mergeMetadata = (base, extra) => {
   if (!base) return extra;
   if (!extra) return base;
@@ -233,7 +251,7 @@ const mergeMetadata = (base, extra) => {
     ...base,
     title: base.title || extra.title,
     author: base.author || extra.author,
-    description: base.description || extra.description,
+    description: pickRicherDescription(base.description, extra.description),
     pageCount: base.pageCount || extra.pageCount,
     cover: pickBestCover(base.cover, extra),
     coverRank: Math.max(baseCoverRank, extraCoverRank),
@@ -294,7 +312,9 @@ const sanitizeDescriptionHtml = (value) => {
   };
 
   scrubNode(doc.body);
-  return doc.body.innerHTML;
+  const cleaned = doc.body.innerHTML.trim();
+  if (cleaned) return cleaned;
+  return doc.body.textContent ? doc.body.textContent.trim() : '';
 };
 
 const renderBookCard = (container, metadata) => {
@@ -556,6 +576,18 @@ const fetchGoogleBySearch = async (book, apiKey) => {
 const resolveBookMetadata = async (book, apiKey) => {
   let result = null;
   const manualCover = book.cover ? String(book.cover) : '';
+  const needsOpenLibrarySearch = (value) =>
+    !value ||
+    !value.title ||
+    !value.author ||
+    !value.cover ||
+    !value.description ||
+    !value.pageCount;
+  const needsGoogleLookup = (value) => {
+    if (!value) return true;
+    if (!value.cover || !value.description) return true;
+    return scoreDescriptionFormatting(value.description) === 0;
+  };
 
   try {
     const openLibraryIsbn = await fetchOpenLibraryByIsbn(book);
@@ -564,16 +596,7 @@ const resolveBookMetadata = async (book, apiKey) => {
     renderError(`Open Library ISBN lookup failed for "${book.title || book.isbn13}".`);
   }
 
-  if (!result || !result.cover) {
-    try {
-      const googleIsbn = await fetchGoogleByIsbn(book, apiKey);
-      result = mergeMetadata(result, googleIsbn);
-    } catch (error) {
-      renderError(`Google Books ISBN lookup failed for "${book.title || book.isbn13}".`);
-    }
-  }
-
-  if (!result || !result.cover) {
+  if (needsOpenLibrarySearch(result)) {
     try {
       const openLibrarySearch = await fetchOpenLibraryBySearch(book);
       result = mergeMetadata(result, openLibrarySearch);
@@ -582,12 +605,15 @@ const resolveBookMetadata = async (book, apiKey) => {
     }
   }
 
-  if (!result || !result.cover) {
+  if (needsGoogleLookup(result)) {
     try {
-      const googleSearch = await fetchGoogleBySearch(book, apiKey);
-      result = mergeMetadata(result, googleSearch);
+      const isbnData = getIsbnData(book);
+      const googleResult = isbnData.isbn13 || isbnData.isbn10
+        ? await fetchGoogleByIsbn(book, apiKey)
+        : await fetchGoogleBySearch(book, apiKey);
+      result = mergeMetadata(result, googleResult);
     } catch (error) {
-      renderError(`Google Books search failed for "${book.title || book.isbn13}".`);
+      renderError(`Google Books lookup failed for "${book.title || book.isbn13}".`);
     }
   }
 
