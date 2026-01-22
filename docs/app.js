@@ -297,8 +297,13 @@ const renderError = (message) => {
 const sanitizeDescriptionHtml = (value) => {
   if (!value) return '';
   const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'BR', 'P']);
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(String(value), 'text/html');
+  let doc;
+  try {
+    const parser = new DOMParser();
+    doc = parser.parseFromString(String(value), 'text/html');
+  } catch (error) {
+    return String(value).trim();
+  }
   if (!doc || !doc.body) {
     return String(value).trim();
   }
@@ -321,7 +326,7 @@ const sanitizeDescriptionHtml = (value) => {
   };
 
   scrubNode(doc.body);
-  const cleaned = doc.body.innerHTML.trim();
+  const cleaned = (doc.body.innerHTML || '').trim();
   if (cleaned) return cleaned;
   return doc.body.textContent ? doc.body.textContent.trim() : '';
 };
