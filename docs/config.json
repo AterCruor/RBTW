@@ -6,9 +6,14 @@
   },
   "currentBooks": [
     {
-      "title": "The Great Gatsby",
-      "author": "F. Scott Fitzgerald",
-      "isbn": "9780743273565"
+      "title": "Blood Over Bright Haven: A Novel",
+      "author": "M. L. Wang",
+      "isbn": ""
+    },
+    {
+      "title": "The World for Sale: Money, Power, and the Traders Who Barter the Earth's Resources",
+      "author": "Jack Farchy, Javier Blas",
+      "isbn": ""
     }
   ],
   "googleBooksApiKey": ""
