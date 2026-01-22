@@ -1,0 +1,15 @@
+{
+  "clubName": "Your Book Club",
+  "nextMeeting": {
+    "date": "2026-02-15",
+    "time": "7:00 PM"
+  },
+  "currentBooks": [
+    {
+      "title": "The Great Gatsby",
+      "author": "F. Scott Fitzgerald",
+      "isbn": "9780743273565"
+    }
+  ],
+  "googleBooksApiKey": ""
+}

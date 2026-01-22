@@ -1,0 +1,118 @@
+:root {
+  color-scheme: light;
+  --ink: #1b1b1b;
+  --muted: #5f5f5f;
+  --paper: #f9f5ef;
+  --accent: #b74b2a;
+  --border: #e2d9cd;
+  --card: #fffaf3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Georgia", "Times New Roman", serif;
+  color: var(--ink);
+  background: radial-gradient(circle at top, #fffdf8 0%, #f7f0e6 45%, #efe6da 100%);
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 32px;
+  margin-bottom: 40px;
+}
+
+.eyebrow {
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  margin: 0 0 16px;
+}
+
+.meeting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meeting-label {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.meeting-datetime {
+  font-size: 20px;
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.books {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.book-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 20px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #f1e8dc;
+}
+
+.book-title {
+  font-size: 18px;
+  margin: 0;
+}
+
+.book-author {
+  margin: 0;
+  color: var(--muted);
+}
+
+.book-meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.errors {
+  list-style: disc;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 32px 16px 64px;
+  }
+}

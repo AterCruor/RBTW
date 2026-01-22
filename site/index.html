@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Book Club</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <p class="eyebrow">Book Club</p>
+        <h1 id="club-name">Loading...</h1>
+        <div class="meeting">
+          <p class="meeting-label">Next meeting</p>
+          <p class="meeting-datetime" id="meeting-datetime">TBD</p>
+        </div>
+      </header>
+
+      <section class="section">
+        <h2>Current Book(s)</h2>
+        <div id="books" class="books"></div>
+      </section>
+
+      <section class="section" id="errors" hidden>
+        <h2>Notes</h2>
+        <ul id="error-list" class="errors"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
