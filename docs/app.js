@@ -75,10 +75,15 @@ const renderBookCard = (container, metadata) => {
   meta.className = 'book-meta';
   meta.textContent = metadata.pageCount ? `${metadata.pageCount} pages` : '';
 
+  const description = document.createElement('p');
+  description.className = 'book-meta';
+  description.textContent = metadata.description || '';
+
   card.appendChild(cover);
   card.appendChild(title);
   card.appendChild(author);
   if (meta.textContent) card.appendChild(meta);
+  if (description.textContent) card.appendChild(description);
 
   container.appendChild(card);
 };
@@ -115,6 +120,13 @@ const fetchFromOpenLibrary = async (book) => {
     return null;
   }
 
+  const description =
+    typeof details.description === 'string'
+      ? details.description
+      : details.description && details.description.value
+      ? details.description.value
+      : null;
+
   return {
     title: details.title || book.title,
     author: details.authors && details.authors[0] ? details.authors[0].name : book.author,
@@ -122,6 +134,7 @@ const fetchFromOpenLibrary = async (book) => {
       (details.cover && (details.cover.large || details.cover.medium)) ||
       (coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : ''),
     pageCount: details.number_of_pages || null,
+    description,
   };
 };
 
@@ -153,6 +166,7 @@ const fetchFromGoogleBooks = async (book, apiKey) => {
     author: info.authors ? info.authors[0] : book.author,
     cover: info.imageLinks ? info.imageLinks.thumbnail : '',
     pageCount: info.pageCount || null,
+    description: info.description || null,
   };
 };
 
@@ -160,6 +174,24 @@ const resolveBookMetadata = async (book, apiKey) => {
   try {
     const openLibrary = await fetchFromOpenLibrary(book);
     if (openLibrary) {
+      const needsEnrichment =
+        !openLibrary.description || !openLibrary.pageCount || !openLibrary.cover;
+      if (!needsEnrichment) {
+        return openLibrary;
+      }
+      try {
+        const googleBooks = await fetchFromGoogleBooks(book, apiKey);
+        if (googleBooks) {
+          return {
+            ...openLibrary,
+            description: openLibrary.description || googleBooks.description,
+            pageCount: openLibrary.pageCount || googleBooks.pageCount,
+            cover: openLibrary.cover || googleBooks.cover,
+          };
+        }
+      } catch (error) {
+        renderError(`Google Books lookup failed for "${book.title || book.isbn}".`);
+      }
       return openLibrary;
     }
   } catch (error) {
