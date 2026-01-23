@@ -1,35 +1,21 @@
 const COVER_SIZES = '(max-width: 600px) 100vw, (max-width: 960px) 50vw, 240px';
 
-const sanitizeDescriptionHtml = (value) => {
+const normalizeDescriptionHtml = (value) => {
   if (!value) return '';
-  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'BR', 'P']);
-  const template = document.createElement('template');
-  template.innerHTML = String(value);
-  const fragment = template.content;
-
-  const scrubNode = (node) => {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      if (!allowedTags.has(node.tagName)) {
-        const fragment = document.createDocumentFragment();
-        while (node.firstChild) fragment.appendChild(node.firstChild);
-        node.replaceWith(fragment);
-        return;
-      }
-      while (node.attributes.length > 0) {
-        node.removeAttribute(node.attributes[0].name);
-      }
-    }
-    for (const child of Array.from(node.childNodes)) {
-      scrubNode(child);
-    }
-  };
-
-  scrubNode(fragment);
-  const wrapper = document.createElement('div');
-  wrapper.appendChild(fragment.cloneNode(true));
-  const cleaned = wrapper.innerHTML.trim();
-  if (cleaned) return cleaned;
-  return wrapper.textContent ? wrapper.textContent.trim() : '';
+  const raw = String(value);
+  if (/<[a-z][\s\S]*>/i.test(raw)) {
+    return raw.trim();
+  }
+  const escaped = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const paragraphs = escaped
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim().replace(/\n/g, '<br>'))
+    .filter(Boolean);
+  if (paragraphs.length === 0) return '';
+  return paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join('');
 };
 
 const applyMetadata = (elements, metadata) => {
@@ -60,7 +46,7 @@ const applyMetadata = (elements, metadata) => {
   }
 
   if (description) {
-    const sanitized = sanitizeDescriptionHtml(metadata.description);
+    const sanitized = normalizeDescriptionHtml(metadata.description);
     description.innerHTML = sanitized;
     if (!sanitized) description.remove();
   }
